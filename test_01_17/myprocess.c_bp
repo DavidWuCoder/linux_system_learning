@@ -1,0 +1,14 @@
+#include <stdio.h>
+#include <unistd.h>
+
+int main() {
+  printf("I am a process, pid: %d\n", getpid());
+
+  int x;
+  scanf("%d", &x);
+
+  while (1) {
+    printf("hello world !\n");
+  }
+  return 0;
+}
