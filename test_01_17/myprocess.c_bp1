@@ -1,0 +1,23 @@
+#include <stdio.h>
+#include <sys/types.h>
+#include <unistd.h>
+
+int main() {
+  pid_t id = fork();
+  if (id == 0) {
+    // child
+    int count = 5;
+    while (count) {
+      printf("I am a child process, I am running. %d\n", count);
+      sleep(1);
+      count--;
+    }
+  } else {
+    // father
+    while (1) {
+      printf("I am a parent process, I am running. \n");
+      sleep(1);
+    }
+  }
+  return 0;
+}
