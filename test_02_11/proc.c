@@ -16,14 +16,20 @@ int main() {
       sleep(1);
       cnt--;
     }
-    exit(0);
+    exit(10);
   }
+
+  int status = 0;
 
   // parent
   // sleep(100);
-  pid_t rid = wait(NULL);
+  pid_t rid = waitpid(id, &status, 0);
   if (rid > 0) {
-    printf("wait success, rid: %d\n", rid);
+    if (WIFEXITED(status))
+      printf("wait success, rid: %d, exit code: %d, exit signal: %d\n", rid,
+             WEXITSTATUS(status), status & 0x7f);
+    else
+      printf("子进程退出异常\n");
   }
 
   return 0;
