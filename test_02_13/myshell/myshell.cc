@@ -2,6 +2,8 @@
 #include <cstdlib>
 #include <cstring>
 #include <iostream>
+#include <random>
+#include <string>
 #include <sys/wait.h>
 #include <unistd.h>
 
@@ -13,6 +15,18 @@
 #define MAXARGV 128
 char *g_argv[MAXARGV];
 int g_argc;
+
+// 环境变量表
+#define MAX_ENVS 100
+char *g_env[MAX_ENVS];
+int g_envs = 0;
+
+// for test
+char cwd[1024];
+char cwdenv[9999];
+
+// last status code
+int lastcode = 0;
 
 const char *GetUserName() {
   const char *name = getenv("USER");
@@ -30,8 +44,71 @@ const char *GetHostName() {
 }
 
 const char *GetPwd() {
-  const char *pwd = getenv("PWD");
-  return pwd == NULL ? "None" : pwd;
+  // const char *pwd = getenv("PWD");
+  const char *pwd = getcwd(cwd, sizeof(cwd));
+  if (pwd != NULL) {
+    snprintf(cwdenv, sizeof(cwdenv), "PWD=%s", cwd);
+    putenv(cwdenv);
+    return pwd;
+  }
+  return "None";
+}
+
+const char *GetHome() {
+  const char *home = getenv("HOME");
+  return home == NULL ? "" : home;
+}
+
+void InitEnv() {
+  extern char **environ;
+  memset(g_env, 0, sizeof(g_env));
+  g_envs = 0;
+
+  // 本来要从配置文件来读取
+  for (int i = 0; environ[i]; i++) {
+    // 1.1申请空间
+    g_env[i] = (char *)malloc(strlen(environ[i]) + 1);
+    strcpy(g_env[i], environ[i]);
+    g_envs++;
+  }
+  g_env[g_envs++] = (char *)"HAA=for_tset";
+  g_env[g_envs] = NULL;
+  for (int i = 0; g_env[i]; i++) {
+    putenv(g_env[i]);
+  }
+}
+
+// command : cd
+bool Cd() {
+
+  if (g_argc == 1) {
+    std::string home = GetHome();
+    if (home.empty()) {
+      return true;
+    }
+    chdir(home.c_str());
+  } else {
+    std::string where = g_argv[1];
+    chdir(where.c_str());
+  }
+  return true;
+}
+
+bool Echo() {
+  std::string opt = g_argv[1];
+  if (opt == "$?") {
+    std::cout << lastcode << std::endl;
+    lastcode = 0;
+  } else if (opt[0] == '$') {
+    std::string env_name = opt.substr(1);
+    const char *env_value = getenv(env_name.c_str());
+    if (env_value) {
+      std::cout << env_value << std::endl;
+    }
+  } else {
+    std::cout << opt << std::endl;
+  }
+  return true;
 }
 
 std::string DirName(const char *pwd) {
@@ -78,7 +155,7 @@ bool CommandParse(char *commandline) {
   while ((bool)(g_argv[g_argc++] = strtok(nullptr, SEP)))
     ;
   g_argc--;
-  return true;
+  return g_argc > 0 ? true : false;
 }
 
 void PrintArgv() {
@@ -86,6 +163,18 @@ void PrintArgv() {
     printf("argv[%d]->%s\n", i, g_argv[i]);
   }
   printf("argc: %d\n", g_argc);
+}
+
+int CheckAndExecBuiltin() {
+  std::string cmd = g_argv[0];
+  if (cmd == "cd") {
+    Cd();
+    return true;
+  } else if (cmd == "echo") {
+    Echo();
+    return true;
+  }
+  return false;
 }
 
 int Excute() {
@@ -96,12 +185,19 @@ int Excute() {
     exit(1);
   }
   // father
-  pid_t rid = waitpid(id, nullptr, 0);
-  (void)rid; // 让rid使用一下
+  int status;
+  pid_t rid = waitpid(id, &status, 0);
+  if (rid > 0) {
+    lastcode = WEXITSTATUS(status);
+  }
   return 0;
 }
 
 int main() {
+  // shell 启动的时候，从系统中获取环境变量
+  // 为方便，这里直接从父进程获取
+  InitEnv();
+
   while (true) {
     // 1.输出命令行提示符
     PrintCommandPrompt();
@@ -114,11 +210,19 @@ int main() {
     // printf("echo %s\n", commandline);
 
     // 3.命令行分析
-    CommandParse(commandline);
+    if (!CommandParse(commandline)) {
+      continue;
+    }
     // PrintArgv();
 
-    // 4.执行命令
+    // 4.检测是否为内建命令
+    if (CheckAndExecBuiltin()) {
+      continue;
+    }
+
+    // 5.执行命令
     Excute();
   }
+  // cleanup
   return 0;
 }
