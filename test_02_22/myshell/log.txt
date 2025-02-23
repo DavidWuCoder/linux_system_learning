@@ -1,0 +1,6 @@
+total 44
+-rw-rw-r-- 1 infinite infinite     0 Feb 23 23:08 log.txt
+-rw-rw-r-- 1 infinite infinite    68 Feb 22 23:44 Makefile
+-rwxrwxr-x 1 infinite infinite 31272 Feb 23 23:08 myshell
+-rw-rw-r-- 1 infinite infinite  7043 Feb 23 23:07 myshell.cc
+/home/infinite/Documents/linux_system_learning/test_02_22/myshell
