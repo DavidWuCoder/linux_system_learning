@@ -12,13 +12,14 @@ class Channel
 {
 public:
     Channel(int fd, pid_t id)
-     :_wfd(fd), _subid(id)
+        : _wfd(fd), _subid(id)
     {
         _name = "channel-" + std::to_string(_wfd) + "-" + std::to_string(_subid);
     }
 
     ~Channel()
-    {}
+    {
+    }
 
     void Close()
     {
@@ -36,9 +37,9 @@ public:
         int n = write(_wfd, &code, sizeof(code));
         (void)n;
     }
-    int Fd() {return _wfd;}
-    pid_t SubID() {return _subid;}
-    std::string Name() {return _name;}
+    int Fd() { return _wfd; }
+    pid_t SubID() { return _subid; }
+    std::string Name() { return _name; }
 
 private:
     int _wfd;
@@ -49,7 +50,7 @@ private:
 class ChannelManager
 {
 public:
-    ChannelManager():_next(0) {}
+    ChannelManager() : _next(0) {}
 
     void InsertChannel(int wfd, pid_t subid)
     {
@@ -58,7 +59,7 @@ public:
         // _channels.push_back(c);
     }
 
-    Channel& select()
+    Channel &select()
     {
         auto &c = _channels[_next];
         _next++;
@@ -68,15 +69,24 @@ public:
 
     void PrintChannel()
     {
-        for (auto& channel : _channels)
+        for (auto &channel : _channels)
         {
             std::cout << channel.Name() << std::endl;
         }
     }
 
+    void CloseAll()
+    {
+        for (auto &c : _channels)
+        {
+            c.Close();
+            std::cout << "关闭：" << c.Name() << std::endl;
+        }
+    }
+
     void StopSubProcess()
     {
-        for (auto& c : _channels)
+        for (auto &c : _channels)
         {
             c.Close();
             std::cout << "关闭：" << c.Name() << std::endl;
@@ -85,11 +95,32 @@ public:
 
     void WaitSubProcess()
     {
-        for (auto& c : _channels)
+        for (auto &c : _channels)
         {
             c.Wait();
             std::cout << "回收：" << c.Name() << std::endl;
         }
+    }
+
+    void CloseAndWait()
+    {
+        for (auto &c : _channels)
+        {
+            c.Close();
+            std::cout << "关闭：" << c.Name() << std::endl;
+            c.Wait();
+            std::cout << "回收：" << c.Name() << std::endl;
+        }
+
+        // 解决方案一
+        // for (int i = _channels.size() - 1; i >= 0 ; i--)
+        // {
+        //     auto c = _channels[i];
+        //     c.Close();
+        //     std::cout << "关闭：" << c.Name() << std::endl;
+        //     c.Wait();
+        //     std::cout << "回收：" << c.Name() << std::endl;
+        // }
     }
 
     ~ChannelManager() {}
@@ -105,7 +136,7 @@ class ProcessPool
 {
 public:
     ProcessPool(int num)
-        :_process_num(num)
+        : _process_num(num)
     {
         _tm.Register(PrintLog);
         _tm.Register(Download);
@@ -125,12 +156,12 @@ public:
                 {
                     continue;
                 }
-                std::cout << "子进程["<< getpid() << "]收到一个任务码：" << code << std::endl;
+                std::cout << "子进程[" << getpid() << "]收到一个任务码：" << code << std::endl;
                 _tm.Excute(code);
             }
             else if (n == 0)
             {
-                std::cout << "子进程退出" <<  std::endl;
+                std::cout << "子进程退出" << std::endl;
                 break;
             }
             else
@@ -148,14 +179,18 @@ public:
             // 1.创建管道
             int pipefd[2] = {0};
             int n = pipe(pipefd);
-            if (n < 0) return false;
+            if (n < 0)
+                return false;
 
             // 2.创建子进程
             pid_t subid = fork();
-            if (subid < 0) return false;
+            if (subid < 0)
+                return false;
             if (subid == 0)
             {
                 // 子进程
+                // 让子进程关掉继承的哥哥进程的w端
+                _cm.CloseAll();
                 close(pipefd[1]);
                 Work(pipefd[0]);
                 exit(0);
@@ -166,7 +201,7 @@ public:
                 close(pipefd[0]);
 
                 _cm.InsertChannel(pipefd[1], subid);
-                //wfd, subid
+                // wfd, subid
             }
         }
         return true;
@@ -183,7 +218,7 @@ public:
         int task_code = _tm.Code();
 
         // 2.负载均衡地选取一个子进程
-        auto& c = _cm.select();
+        auto &c = _cm.select();
         std::cout << "选择一个子进程：" << c.Name() << std::endl;
 
         // 3.发送任务
@@ -193,16 +228,17 @@ public:
 
     void Stop()
     {
-        // 关闭父进程的wfd即可
-        _cm.StopSubProcess();
-        // 回收所有子进程
-        _cm.WaitSubProcess();
+        // // 关闭父进程的wfd即可
+        // _cm.StopSubProcess();
+        // // 回收所有子进程
+        // _cm.WaitSubProcess();
+        _cm.CloseAndWait();
     }
 
     ~ProcessPool()
     {
-
     }
+
 private:
     ChannelManager _cm;
     int _process_num;
