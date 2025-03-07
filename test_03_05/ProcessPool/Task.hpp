@@ -44,7 +44,9 @@ public:
         }
     }
     ~TaskManager()
-    {}
+    {
+    }
+
 private:
     std::vector<task_t> _tasks;
 };
