@@ -1,12 +1,13 @@
-#include "comm.hpp"
+#include "Shm.hpp"
 
 int main()
 {
-    Shm shm;
-    shm.Create();
-    shm.Attach();
-    shm.VituralAddr();
-    sleep(20);
-    shm.Destroy();
+    Shm shm(pathname, projid, CREATER);
+    char * mem = (char *)shm.VituralAddr();
+    while (true)
+    {
+        printf("%s\n", mem);
+        sleep(1);
+    }
     return 0;
 }

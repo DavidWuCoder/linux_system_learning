@@ -1,14 +1,13 @@
-#include "comm.hpp"
+#include "Shm.hpp"
 
 int main()
 {
-    Shm shm;
-    // 获取共享内存
-    shm.Get();
-    sleep(5);
-    // 映射到自己的地址空间
-    shm.Attach();
-
-    sleep(5);
+    Shm shm(pathname, projid, USER);
+    char * mem = (char *)shm.VituralAddr();
+    for (char c = 'A'; c <= 'Z'; c++)
+    {
+        mem[c - 'A'] = c;
+        sleep(1);
+    }
     return 0;
 }
