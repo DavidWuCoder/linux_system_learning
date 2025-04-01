@@ -45,6 +45,11 @@ namespace MutexModule
             (void)n;
         }
 
+        pthread_mutex_t* Get()
+        {
+            return &_mutex;
+        }
+
     private:
         pthread_mutex_t _mutex;
     };
