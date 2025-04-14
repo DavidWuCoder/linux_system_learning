@@ -35,7 +35,7 @@ int main(int argc, char* argv[])
         // 3.网络提供通信功能
         std::unique_ptr<UdpServer> usvr = std::make_unique<UdpServer>(port, 
             [&r, &tp](int sockfd, const std::string& message, InetAddr& peer){
-            task_t t = std::bind(Route::MessageRoute, &r, sockfd, message, peer);
+            task_t t = std::bind(&Route::MessageRoute, &r, sockfd, message, peer);
             tp->Enqueue(t);
         });
 
