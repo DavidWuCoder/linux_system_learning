@@ -108,7 +108,7 @@ namespace ThreadPoolModule
                     while (_taskq.empty() && _is_running == true)
                     {
                         _sleepernum++;
-                        LOG(LogLevel::DEBUG) << _sleepernum;
+                        // LOG(LogLevel::DEBUG) << _sleepernum;
                         _cond.Wait(_mutex);
                         _sleepernum--;
                     }
@@ -138,7 +138,7 @@ namespace ThreadPoolModule
                 // 唤醒线程
                 if (_sleepernum == _threads.size())
                 {
-                    // LOG(LogLevel::DEBUG) << "唤醒一个线程";
+                    LOG(LogLevel::DEBUG) << "唤醒一个线程";
                     WakeUpOne();
                 }
                 return true;

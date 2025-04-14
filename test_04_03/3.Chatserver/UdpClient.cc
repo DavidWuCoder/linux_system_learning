@@ -52,6 +52,7 @@ void Send()
 
         if (input == "QUIT")
         {
+            pthread_cancel(id);
             break;
         }
     }
@@ -86,12 +87,10 @@ int main(int argc, char* argv[])
     recver.Start();
     sender.Start();
 
-    recver.Id();
+    id = recver.Id();
 
     recver.Join();
     sender.Join();
-
-
 
     // 2. 本地的ip和端口是什么？
     // 客户端不需要显示绑定，首次发送消息，操作系统自动给客户端进行绑定。OS知道IP,端口号采用随机IP

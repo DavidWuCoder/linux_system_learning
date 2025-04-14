@@ -17,10 +17,10 @@ private:
         {
             if (user == peer)
             {
-                return false;
+                return true;
             }
         }
-        return true;
+        return false;
     }
 
     void AddUser(InetAddr &peer)
@@ -50,7 +50,7 @@ public:
         {
             AddUser(peer);
         }
-
+        // std::cout << "size:" << _online_user.size() << std::endl;
         std::string send_message = peer.StringAddr() + "#" + message;
         for (auto &user : _online_user)
         {
