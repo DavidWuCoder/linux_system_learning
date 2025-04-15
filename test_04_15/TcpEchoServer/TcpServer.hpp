@@ -2,10 +2,15 @@
 #include "Log.hpp"
 #include "Common.hpp"
 #include "inetAddr.hpp" // 注意包含的顺序
+#include "ThreadPool.hpp"
 #include <sys/wait.h>
 // #include <signal.h>
 
 using namespace LogModule;
+using namespace ThreadPoolModule;
+
+// using task_t = std::function<void()>;
+using func_t = std::function<std::string(const std::string&, InetAddr &)>;
 
 const static int defaultsockfd = -1;
 const int backlog = 8;
@@ -13,7 +18,11 @@ const int backlog = 8;
 class TcpServer : public NoCopy
 {
 public:
-    TcpServer(uint16_t port) : _port(port), _listensockfd(defaultsockfd), _isrunning(false)
+    TcpServer(uint16_t port, func_t func) : 
+    _port(port),
+     _listensockfd(defaultsockfd),
+      _isrunning(false),
+      _func(func)
     {
     }
 
@@ -64,6 +73,8 @@ public:
         TcpServer *tsvr;
     };
 
+    // 短服务：多进程合适
+    // 长服务：多线程多进程比较合适合适
     void Service(int sockfd, InetAddr &addr)
     {
         char buffer[1024];
@@ -76,10 +87,10 @@ public:
             {
                 buffer[n] = 0;
                 LOG(LogLevel::DEBUG) << addr.StringAddr() << "say#" << buffer;
-
-                // 2.写回
-                std::string echo_string = "echo# ";
-                echo_string += buffer;
+                std::string echo_string = _func(buffer, addr);
+                // // 2.写回
+                // std::string echo_string = "echo# ";
+                // echo_string += buffer;
                 write(sockfd, echo_string.c_str(), echo_string.size());
             }
             else if (n == 0)
@@ -124,6 +135,13 @@ public:
             }
             InetAddr addr(peer);
             LOG(LogLevel::INFO) << "accept success, peer addr: " << addr.StringAddr(); // 3
+
+            // version2: 多线程版本
+            ThreadData *td = new ThreadData(sockfd, addr, this);
+
+            pthread_t tid;
+            pthread_create(&tid, nullptr, Routine, td);
+
             // version0 --> test 单线程，仅测试
             // Service(sockfd, addr);
 
@@ -155,11 +173,12 @@ public:
             //     (void)rid;
             // }
 
-            // version2: 多线程版本
-            ThreadData *td = new ThreadData(sockfd, addr, this);
 
-            pthread_t tid;
-            pthread_create(&tid, nullptr, Routine, td);
+
+            // version3:线程池版本
+            // ThreadPool<task_t>::GetInstance()->Enqueue([this, sockfd, &addr](){
+            //     this->Service(sockfd, addr);
+            // });
         }
 
         _isrunning = false;
@@ -173,4 +192,5 @@ private:
     uint16_t _port;
     int _listensockfd; // 监听套接字
     bool _isrunning;
+    func_t _func;
 };
