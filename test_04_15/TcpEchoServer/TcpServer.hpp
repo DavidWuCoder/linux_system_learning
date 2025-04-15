@@ -13,8 +13,9 @@ const int backlog = 8;
 class TcpServer : public NoCopy
 {
 public:
-    TcpServer(uint16_t port) : _port(port), _listensockfd(defaultsockfd) , _isrunning(false)
-    {}
+    TcpServer(uint16_t port) : _port(port), _listensockfd(defaultsockfd), _isrunning(false)
+    {
+    }
 
     void Init()
     {
@@ -46,8 +47,22 @@ public:
             exit(LISTEN_ERR);
         }
         LOG(LogLevel::INFO) << "listen success: " << _listensockfd; // 3
-
     }
+
+    class ThreadData
+    {
+    public:
+        ThreadData(int fd, InetAddr &ar, TcpServer *s)
+            : _sockfd(fd),
+              _addr(ar), tsvr(s)
+        {
+        }
+
+    public:
+        int _sockfd;
+        InetAddr _addr;
+        TcpServer *tsvr;
+    };
 
     void Service(int sockfd, InetAddr &addr)
     {
@@ -56,7 +71,7 @@ public:
         while (true)
         {
             // 1.读取
-            ssize_t n = read(sockfd, buffer, sizeof(buffer)-1);
+            ssize_t n = read(sockfd, buffer, sizeof(buffer) - 1);
             if (n > 0)
             {
                 buffer[n] = 0;
@@ -66,22 +81,29 @@ public:
                 std::string echo_string = "echo# ";
                 echo_string += buffer;
                 write(sockfd, echo_string.c_str(), echo_string.size());
-    
             }
             else if (n == 0)
             {
                 LOG(LogLevel::DEBUG) << addr.StringAddr() << "退出了...";
                 close(sockfd);
-                break; 
+                break;
             }
             else
             {
                 LOG(LogLevel::DEBUG) << addr.StringAddr() << "异常...";
                 close(sockfd);
-                break; 
+                break;
             }
-
         }
+    }
+
+    static void *Routine(void *args)
+    {
+        pthread_detach(pthread_self());
+        ThreadData *td = static_cast<ThreadData *>(args);
+        td->tsvr->Service(td->_sockfd, td->_addr);
+        delete td;
+        return nullptr;
     }
 
     void Run()
@@ -101,17 +123,52 @@ public:
                 continue;
             }
             InetAddr addr(peer);
-            LOG(LogLevel::INFO) << "accept success, peer addr: " << addr.StringAddr(); // 3   
+            LOG(LogLevel::INFO) << "accept success, peer addr: " << addr.StringAddr(); // 3
             // version0 --> test 单线程，仅测试
-            Service(sockfd, addr);
+            // Service(sockfd, addr);
 
+            // version1 多进程
+            // pid_t id = fork();
+            // if (id < 0)
+            // {
+            //     LOG(LogLevel::FATAL) << "fork error";
+            //     exit(FORK_ERR);
+            // }
+            // else if (id == 0)
+            // {
+            //     // 子进程
+            //     // 不希望子进程访问listensock
+            //     close(_listensockfd);
+
+            //     if (fork() > 0) // 再次fork
+            //         exit(OK);
+
+            //     Service(sockfd, addr); // 子进程的子进程
+            //     exit(OK);
+            // }
+            // else
+            // {
+            //     // 父进程
+            //     close(sockfd);
+
+            //     pid_t rid = waitpid(id, nullptr, 0);
+            //     (void)rid;
+            // }
+
+            // version2: 多线程版本
+            ThreadData *td = new ThreadData(sockfd, addr, this);
+
+            pthread_t tid;
+            pthread_create(&tid, nullptr, Routine, td);
         }
 
         _isrunning = false;
     }
 
-    ~TcpServer() 
-    {}
+    ~TcpServer()
+    {
+    }
+
 private:
     uint16_t _port;
     int _listensockfd; // 监听套接字

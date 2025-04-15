@@ -24,7 +24,7 @@ public:
         //local.sin_addr.s_addr = inet_addr(_ip.c_str()); // TODO
     }
 
-    InetAddr(uint16_t port):_port(port),_ip("0")
+    InetAddr(uint16_t port = 8080):_port(port),_ip("0")
     {
         // 主机转网络
         memset(&_addr, 0, sizeof(_addr));
