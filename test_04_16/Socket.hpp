@@ -20,12 +20,20 @@ namespace SocketModule
         virtual void ListenOrDie(int backlog) = 0;
         virtual std::shared_ptr<Socket> Accept(InetAddr *client) = 0;
         virtual void Close() = 0;
+        virtual int Recv(std::string* out) = 0;
+        virtual int Send(const std::string out) = 0;
+        virtual int Connect(const std::string &server_ip, uint16_t port) = 0;
+
     public:
         void BuildListenSocketMethod(uint16_t port, int backlog = gbacklog)
         {
             SocketOrDie();
             BindOrDie(port);
             ListenOrDie(backlog);
+        }
+        void BuildTcpClientSocketMethod()
+        {
+            SocketOrDie();
         }
 
         // void BuildUdpSocketMethod()
@@ -47,6 +55,11 @@ namespace SocketModule
         :_sockfd(fd)
         {}
 
+        TcpSocket(const std::string &ip, uint16_t port)
+        {
+
+        }
+
         ~TcpSocket()
         {}
 
@@ -60,6 +73,24 @@ namespace SocketModule
             }
             LOG(LogLevel::INFO) << "socket success, sockfd: " << _sockfd;
         }
+
+        int Recv(std::string* out) override
+        {
+            char buffer[1024];
+            ssize_t n = ::read(_sockfd, buffer, sizeof(buffer)-1);
+            if (n > 0)
+            {
+                buffer[n] = 0;
+                *out += buffer;
+            }
+            return n;
+        }
+
+        int Send(const std::string out) override
+        {
+            return send(_sockfd, out.c_str(), out.size(), 0);
+        }
+
         void BindOrDie(uint16_t port) override
         {
             InetAddr localAddr(port);
@@ -101,6 +132,12 @@ namespace SocketModule
             {
                 ::close(_sockfd);
             }
+        }
+
+        int Connect(const std::string &ip, uint16_t port) override
+        {
+            InetAddr server(ip, port);
+            return ::connect(_sockfd, server.NetAddrPtr(), server.NetAddrLen());
         }
 
     private:
