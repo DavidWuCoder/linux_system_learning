@@ -1,5 +1,6 @@
 #include "TcpServer.hpp"
 #include "Protocol.hpp"
+#include "NetCal.hpp"
 
 using namespace SocketModule;
 
@@ -16,8 +17,15 @@ int main(int argc, char** argv)
         Usage(argv[0]);
         exit(USAGE_ERR);
     }
-    std::unique_ptr<Protocol> protocol = std::make_unique<Protocol>();
+    // 1.顶层
+    std::unique_ptr<Cal> cal = std::make_unique<Cal>();
 
+    // 2.协议层
+    std::unique_ptr<Protocol> protocol = std::make_unique<Protocol>([&cal](Request &req) -> Response{
+        return cal->Execute(req);
+    });
+
+    // 3.服务器层
     std::unique_ptr<TcpServer> tsvr = std::make_unique<TcpServer>(std::stoi(argv[1]),
          [&protocol](std::shared_ptr<Socket> &sock, InetAddr &client){
             protocol->GetRequest(sock, client);

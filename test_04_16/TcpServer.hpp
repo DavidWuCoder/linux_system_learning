@@ -51,6 +51,7 @@ public:
                     exit(OK);
                 }
                 _service(sock, client);
+                sock->Close();
                 exit(OK);
             }
             else 
