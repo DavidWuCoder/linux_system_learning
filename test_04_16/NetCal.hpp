@@ -9,6 +9,8 @@ public:
     Response Execute(Request& req)
     {
         Response resp;
+
+        std::cout << "Excute: " << req.X() << ' ' << req.Oper() << ' ' << req.Y() << std::endl;
         switch(req.Oper())
         {
         case '+':

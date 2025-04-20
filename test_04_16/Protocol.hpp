@@ -46,7 +46,7 @@ public:
         if (ok)
         {
             _x = root["x"].asInt();
-            _x = root["y"].asInt();
+            _y = root["y"].asInt();
             _oper = root["oper"].asInt();
         }
         return ok;
@@ -115,6 +115,11 @@ public:
         return ok;
     }
 
+    void ShowResult()
+    {
+        std::cout << "结果是：" << _result << "[" << _code << "]" << std::endl;
+    }
+
     ~Response()
     {}
 
@@ -137,6 +142,9 @@ using func_t = std::function<Response (Request &req)>;
 class Protocol
 {
 public:
+    Protocol()
+    {}
+
     Protocol(func_t func)
         : _func(func)
     {}
@@ -180,33 +188,42 @@ public:
         while (true)
         {
             int n = sock->Recv(&inbuffer);
+            std::cout << "------inbuffer--------" << std::endl;
+            std::cout << inbuffer << std::endl;
+            std::cout << "------------------------" << std::endl;
             if (n > 0)
             {
                 // 1.解析报文，提取完整的json
-                std::string json_package;
-                bool ret = Decode(inbuffer, &json_package);
-                if (!ret)
-                    continue;
+                // std::string json_package;
+                // bool ret = Decode(inbuffer, &json_package);
+                // if (!ret)
+                //     continue;
                 // 一定拿到一个完整报文
                 // 2. 反序列化
-                Request req;
-                bool ok = req.Deserialize(json_package);
-                if (!ok)
+                std::string json_package;
+                while (Decode(inbuffer, &json_package))
                 {
-                    continue;
+                    Request req;
+                    bool ok = req.Deserialize(json_package);
+                    if (!ok)
+                    {
+                        continue;
+                    }
+                    std::cout << "发送x：" << req.X() << std::endl;
+                
+                    // 3.一定得到了req了
+                    // req->resp, 进行计算
+                    Response resp = _func(req);
+
+                    // 4.序列化
+                    std::string json_str = resp.Serialize();
+
+                    // 5.添加报头
+                    std::string send_str = Encode(json_str);
+
+                    // 6. 直接发送
+                    sock->Send(send_str);
                 }
-                // 3.一定得到了req了
-                // req->resp, 进行计算
-                Response resp = _func(req);
-
-                // 4.序列化
-                std::string json_str = resp.Serialize();
-
-                // 5.添加报头
-                std::string send_str = Encode(json_str);
-
-                // 6. 直接发送
-                sock->Send(send_str);
             }
             else if (n == 0)
             {
@@ -220,6 +237,63 @@ public:
             }
         }
         // sock->Close();
+    }
+
+    std::string BuildRequestString(int x, int y, char oper)
+    {
+        Request req(x, y, oper);
+
+        // std::cout << req.X() << ' ' << req.Y() << req.Oper() << std::endl;
+
+        std::string json_req = req.Serialize();
+
+        // 2.1 debug
+        std::cout << "========json_req string =========" << std::endl;
+        std::cout << json_req << std::endl;
+        std::cout << "=================================" << std::endl;
+        
+
+        return Encode(json_req);
+    }
+
+    bool GetResponse(std::shared_ptr<Socket>& client, std::string& resp_buffer, Response* resp)
+    {
+        int n = client->Recv(&resp_buffer);
+
+        while (true)
+        {
+            if (n > 0)
+            {
+                std::cout << "------resp_bufer--------" << std::endl;
+                std::cout << resp_buffer << std::endl;
+                std::cout << "------------------------" << std::endl;
+                // 成功
+                std::string json_package;
+
+                bool ret = Decode(resp_buffer, &json_package);
+                if (!ret)
+                {
+                    continue;
+                }
+
+                std::cout << "------json_package--------" << std::endl;
+                std::cout << json_package << std::endl;
+                std::cout << "------------------------" << std::endl;
+
+                resp->Deserialize(json_package);
+                return true;
+            }
+            else if (n == 0)
+            {
+                std::cout << "server quit" << std::endl;
+                return true;
+            }
+            else
+            {
+                std::cerr << "server quit" << std::endl;
+                return false;
+            }
+        }
     }
 
     ~Protocol()
