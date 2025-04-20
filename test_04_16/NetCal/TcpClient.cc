@@ -49,9 +49,9 @@ int main(int argc, char *argv[])
 
         // 2.
         std::string req_str = protocol->BuildRequestString(x, y, oper); 
-        std::cout << "===========encode req string ==============" << std::endl;
-        std::cout << req_str << std::endl;
-        std::cout << "===========================================" <<std::endl;
+        // std::cout << "===========encode req string ==============" << std::endl;
+        // std::cout << req_str << std::endl;
+        // std::cout << "===========================================" <<std::endl;
 
 
         // 3.

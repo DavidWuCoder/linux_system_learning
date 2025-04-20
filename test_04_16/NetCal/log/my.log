@@ -1,0 +1,24 @@
+[2025-04-20 14:53:08][INFO][12170][Socket.hpp][74]-socket success, sockfd: 3
+[2025-04-20 14:53:08][INFO][12170][Socket.hpp][103]-bind success
+[2025-04-20 14:53:08][INFO][12170][Socket.hpp][113]-listen success
+[2025-04-20 14:54:14][DEBUG][12170][TcpServer.hpp][36]-accept success0.0.0.0:34834
+[2025-04-20 14:54:42][INFO][12370][Protocol.hpp][230]-client:0.0.0.0:34834Quit
+[2025-04-20 14:58:44][INFO][12640][Socket.hpp][74]-socket success, sockfd: 3
+[2025-04-20 14:58:44][INFO][12640][Socket.hpp][103]-bind success
+[2025-04-20 14:58:44][INFO][12640][Socket.hpp][113]-listen success
+[2025-04-20 14:58:51][DEBUG][12640][TcpServer.hpp][36]-accept success0.0.0.0:35560
+[2025-04-20 14:58:55][INFO][12664][Protocol.hpp][230]-client:0.0.0.0:35560Quit
+[2025-04-20 14:58:56][DEBUG][12640][TcpServer.hpp][36]-accept success0.0.0.0:41582
+[2025-04-20 14:59:03][INFO][12705][Protocol.hpp][230]-client:0.0.0.0:41582Quit
+[2025-04-20 15:02:15][INFO][12969][Socket.hpp][74]-socket success, sockfd: 3
+[2025-04-20 15:02:15][FATAL][12969][Socket.hpp][100]-bind error
+[2025-04-20 15:02:37][INFO][13063][Socket.hpp][74]-socket success, sockfd: 3
+[2025-04-20 15:02:37][INFO][13063][Socket.hpp][103]-bind success
+[2025-04-20 15:02:37][INFO][13063][Socket.hpp][113]-listen success
+[2025-04-20 15:03:03][DEBUG][13063][TcpServer.hpp][36]-accept success0.0.0.0:60084
+[2025-04-20 15:03:05][INFO][13101][Protocol.hpp][213]-请求: {
+	"oper" : 43,
+	"x" : 1,
+	"y" : 2
+}
+[2025-04-20 15:03:20][INFO][13101][Protocol.hpp][231]-client:0.0.0.0:60084Quit

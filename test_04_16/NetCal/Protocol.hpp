@@ -210,6 +210,7 @@ public:
                         continue;
                     }
                     std::cout << "发送x：" << req.X() << std::endl;
+                    LOG(LogLevel::INFO) << "请求: " << json_package;
                 
                     // 3.一定得到了req了
                     // req->resp, 进行计算
@@ -248,9 +249,9 @@ public:
         std::string json_req = req.Serialize();
 
         // 2.1 debug
-        std::cout << "========json_req string =========" << std::endl;
-        std::cout << json_req << std::endl;
-        std::cout << "=================================" << std::endl;
+        // std::cout << "========json_req string =========" << std::endl;
+        // std::cout << json_req << std::endl;
+        // std::cout << "=================================" << std::endl;
         
 
         return Encode(json_req);
@@ -264,9 +265,9 @@ public:
         {
             if (n > 0)
             {
-                std::cout << "------resp_bufer--------" << std::endl;
-                std::cout << resp_buffer << std::endl;
-                std::cout << "------------------------" << std::endl;
+                // std::cout << "------resp_bufer--------" << std::endl;
+                // std::cout << resp_buffer << std::endl;
+                // std::cout << "------------------------" << std::endl;
                 // 成功
                 std::string json_package;
 
@@ -276,9 +277,9 @@ public:
                     continue;
                 }
 
-                std::cout << "------json_package--------" << std::endl;
-                std::cout << json_package << std::endl;
-                std::cout << "------------------------" << std::endl;
+                // std::cout << "------json_package--------" << std::endl;
+                // std::cout << json_package << std::endl;
+                // std::cout << "------------------------" << std::endl;
 
                 resp->Deserialize(json_package);
                 return true;

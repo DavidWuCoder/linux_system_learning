@@ -1,6 +1,7 @@
 #include "TcpServer.hpp"
 #include "Protocol.hpp"
 #include "NetCal.hpp"
+#include "Daemon.hpp"
 
 using namespace SocketModule;
 
@@ -17,6 +18,12 @@ int main(int argc, char** argv)
         Usage(argv[0]);
         exit(USAGE_ERR);
     }
+    std::cout << "服务器已经启动，已经是守护进程了" << std::endl;
+    // Daemon(0, 0);
+    daemon(0, 0);
+
+    Enable_File_Log_Strategy();
+
     // 1.顶层
     std::unique_ptr<Cal> cal = std::make_unique<Cal>();
 
