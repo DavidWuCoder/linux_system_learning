@@ -33,7 +33,7 @@ public:
             {
                 continue;
             }
-            LOG(LogLevel::DEBUG) << "accept success";
+            LOG(LogLevel::DEBUG) << "accept success" << client.StringAddr();
 
             // sock && client
             pid_t id = fork();
