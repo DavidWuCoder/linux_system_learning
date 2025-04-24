@@ -77,6 +77,7 @@ private:
     std::unordered_map<std::string, std::string> _headers;
     std::string _blanksize;
     std::string _text;
+
 };
 
 class HttpResponse
@@ -105,6 +106,21 @@ public:
         return true;
     }
 
+    void SetTargetFile(const std::string& target)
+    {
+        _targetfile = target;
+    }
+
+    bool MakeResponse()
+    {
+        bool res = Util::ReadFileContent(_targetfile, &_text);
+        if (!res)
+        {
+            _code = 404;
+            _desc = "Not Found";
+        }
+    }
+
     ~HttpResponse()
     {}
 
@@ -117,6 +133,9 @@ public:
     std::unordered_map<std::string, std::string> _headers;
     std::string _blankline;
     std::string _text;
+
+    // 其他属性
+    std::string _targetfile;
 };
 
 class Http
@@ -147,11 +166,12 @@ public:
             resp._code = 200; // success
             resp._desc = "ok";
 
-            std::string filename = req.Uri();
+            resp.SetTargetFile(req.Uri());
+            resp.MakeResponse();
 
-            LOG(LogLevel::DEBUG) << "用户请求：" << filename;
-            bool res = Util::ReadFileContent(filename, &resp._text);
-            (void)res;
+            // LOG(LogLevel::DEBUG) << "用户请求：" << filename;
+            // bool res = Util::ReadFileContent(filename, &resp._text);
+            // (void)res;
             std::string response_str = resp.Serialize();
             sock->Send(response_str);
         }
