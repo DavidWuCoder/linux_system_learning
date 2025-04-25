@@ -15,6 +15,7 @@ const std::string glinesep = ": ";
 
 const std::string webroot = "./wwwroot";
 const std::string homepage = "index.html";
+const std::string page_404 = "/404.html";
 
 class HttpRequest
 {
@@ -77,14 +78,14 @@ private:
     std::unordered_map<std::string, std::string> _headers;
     std::string _blanksize;
     std::string _text;
-
 };
 
 class HttpResponse
 {
 public:
-    HttpResponse() :_blankline(gline)
-    {}
+    HttpResponse() : _blankline(gline), _version("HTTP/1.0")
+    {
+    }
 
     // 序列化.
     // 成熟的http,应答做序列化不要依赖任何第三方库
@@ -92,39 +93,118 @@ public:
     {
         std::string status_line = _version + gspace + std::to_string(_code) + gspace + _desc + gline;
         std::string resp_header;
-        for (auto& header : _headers)
+        for (auto &header : _headers)
         {
-            std::string line = header.first + glinesep + header.second;
+            std::string line = header.first + glinesep + header.second + gline;
             resp_header += line;
         }
 
         return status_line + resp_header + _blankline + _text;
     }
 
-    bool Deserialize(std::string& reqstr)
+    bool Deserialize(std::string &reqstr)
     {
         return true;
     }
 
-    void SetTargetFile(const std::string& target)
+    void SetTargetFile(const std::string &target)
     {
         _targetfile = target;
     }
 
-    bool MakeResponse()
+    void SetCode(int code)
     {
-        bool res = Util::ReadFileContent(_targetfile, &_text);
-        if (!res)
+        _code = code;
+        switch(code)
         {
-            _code = 404;
-            _desc = "Not Found";
+            case 200:
+                _desc = "ok";
+                break;
+            case 404:
+                _desc = "Not Found";
+                break;
+            default:
+                break;
         }
     }
 
-    ~HttpResponse()
-    {}
+    void SetHeader(const std::string key, const std::string value)
+    {
+        auto iter = _headers.find(key);
+        if (iter != _headers.end())
+        {
+            return;
+        }
+        _headers[key] = value;
+    }
 
-// private:
+    // 提取后缀
+    // 映射
+    std::string Uri2Suffix(std::string& targetfile)
+    {
+        auto pos = targetfile.rfind(".");
+        if (pos == std::string::npos)
+        {
+            return "text/html";
+        }
+        std::string suffix = targetfile.substr(pos);
+        if (suffix == ".html" || suffix == ".htm")
+        {
+            return "text/html";
+        }
+        else if (suffix == ".jpg")
+        {
+            return "image/jpeg";
+        }
+        else if (suffix == ".png")
+        {
+            return "image/png";
+        }
+        else
+        {
+            return "";
+        }
+    }
+
+    bool MakeResponse()
+    {
+        if (_targetfile == "./wwwroot/favicon.ico")
+        {
+            LOG(LogLevel::INFO) << "用户请求" << _targetfile << "忽略它";
+            return false;
+        }
+        int filesize = 0;
+        bool res = Util::ReadFileContent(_targetfile, &_text);
+        if (!res)
+        {
+            _text = "";
+            LOG(LogLevel::WARNING) << "client want to get " << _targetfile << " but not found";
+            SetCode(404);
+            _targetfile = webroot + page_404;
+            filesize = Util::FileSize(_targetfile);
+            Util::ReadFileContent(_targetfile, &_text);
+            std::string suffix = Uri2Suffix(_targetfile);
+            SetHeader("Content-Type", suffix); 
+            // _headers["Content-Type"] += "; charset=utf-8";
+            SetHeader("Content-Length", std::to_string(filesize));
+        }
+        else
+        {
+            SetCode(200);
+            filesize = Util::FileSize(_targetfile);
+            std::string suffix = Uri2Suffix(_targetfile);
+            SetHeader("Content-Type", suffix); 
+            // _headers["Content-Type"] += "; charset=utf-8\r\n";
+            SetHeader("Content-Length", std::to_string(filesize));
+        }
+        return true;
+    }
+
+    ~HttpResponse()
+    {
+    }
+
+    // private:
 public:
     std::string _version;
     int _code;
@@ -175,7 +255,6 @@ public:
             std::string response_str = resp.Serialize();
             sock->Send(response_str);
         }
-        
 
 #define DEBUG
 #ifndef DEBUG
@@ -196,7 +275,7 @@ public:
 
         std::string response_str = resp.Serialize();
         sock->Send(response_str);
-#endif 
+#endif
     }
 
     void Start()

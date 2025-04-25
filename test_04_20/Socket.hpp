@@ -76,7 +76,7 @@ namespace SocketModule
 
         int Recv(std::string* out) override
         {
-            char buffer[4096];
+            char buffer[4096*12];
             ssize_t n = ::read(_sockfd, buffer, sizeof(buffer)-1);
             if (n > 0)
             {
