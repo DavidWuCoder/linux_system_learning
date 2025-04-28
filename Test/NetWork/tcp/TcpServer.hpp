@@ -8,11 +8,25 @@
 #include <string>
 #include <unistd.h>
 #include <sys/wait.h>
+#include <pthread.h>
 
-const int default_log  = 6;
+const int default_log = 6;
+
+class ThreadData
+{
+public:
+    ThreadData(int sockfd, std::string ip, uint16_t port)
+        : _sockfd(sockfd), _ip(ip), _port(port)
+    {
+    }
+
+    std::string _ip;
+    uint16_t _port;
+    int _sockfd;
+};
 
 class TcpServer
-{   
+{
 public:
     TcpServer(uint16_t port) : _port(port), _isrunning(false)
     {
@@ -54,9 +68,11 @@ public:
         std::cout << "listen success, sockfd: " << _listensock << std::endl;
     }
 
-        // 服务器将要完成的服务
+    // 服务器将要完成的服务
     // 为方便，我们仅作收发消息的服务，本质上是从文件中IO,支持全双工
-    void service(int sockfd, std::string client_ip, uint16_t client_port)
+
+    // 加上static关键字设置为静态
+    static void service(int sockfd, std::string client_ip, uint16_t client_port)
     {
         char buffer[1024];
         // IO
@@ -67,15 +83,15 @@ public:
             if (n > 0)
             {
                 buffer[n] = 0;
-                std::cout << "[" << client_ip << ":" << client_port<< "]#" << buffer << std::endl;
+                std::cout << "[" << client_ip << ":" << client_port << "]#" << buffer << std::endl;
                 std::string echo_string = "server say# ";
                 echo_string += buffer;
                 // 发消息就是向文件中写入
                 write(sockfd, echo_string.c_str(), echo_string.size());
             }
-            else if(n == 0) // read 返回0表示文件读到了结尾
+            else if (n == 0) // read 返回0表示文件读到了结尾
             {
-                std::cout << "client ["<< client_ip << ":" << client_port << "] quit...\n";
+                std::cout << "client [" << client_ip << ":" << client_port << "] quit...\n";
                 break;
             }
             else
@@ -84,6 +100,23 @@ public:
                 exit(4);
             }
         }
+    }
+
+    static void* Routine(void *args)
+    {
+        // 分离线程，无需回收
+        pthread_detach(pthread_self());
+
+        // 类型转换
+        ThreadData* td = (ThreadData*)args;
+        //调用service
+        TcpServer::service(td->_sockfd, td->_ip, td->_port);
+
+        // 关掉socket描述符
+        close(td->_sockfd);
+
+        delete td; // 释放空间
+        return nullptr;
     }
 
     // 启动服务器
@@ -106,12 +139,9 @@ public:
             uint16_t client_port = ntohs(peer.sin_port);
             std::cout << "get a new link [" << client_ip << "]:" << client_port << std::endl;
 
-            pid_t id = fork();
-			if (id == 0){ //child
-				//处理请求
-				service(sockfd, client_ip, client_port);
-				exit(0); //子进程提供完服务退出
-			}
+            ThreadData* td = new ThreadData(sockfd, client_ip, client_port);
+            pthread_t tid;
+            pthread_create(&tid, nullptr, Routine, td);
         }
     }
 
@@ -120,3 +150,4 @@ private:
     int _listensock;
     bool _isrunning;
 };
+
