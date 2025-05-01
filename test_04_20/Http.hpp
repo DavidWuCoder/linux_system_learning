@@ -20,7 +20,7 @@ const std::string page_404 = "/404.html";
 class HttpRequest
 {
 public:
-    HttpRequest()
+    HttpRequest():_is_interact(false)
     {
     }
 
@@ -62,12 +62,32 @@ public:
         {
             _uri = webroot + _uri;
         }
+        const std::string temp = "?";
+        auto pos = _uri.find(temp);
+        if (pos == std::string::npos)
+        {
+            return true;
+        }
+        _args = _uri.substr(pos + temp.size());
+        _uri = _uri.substr(0, pos);
+
+        _is_interact = true;
 
         return true;
     }
 
     ~HttpRequest()
     {
+    }
+
+    bool isInteract()
+    {
+        return _is_interact;
+    }
+
+    std::string Args()
+    {
+        return _args;
     }
 
 private:
@@ -78,6 +98,9 @@ private:
     std::unordered_map<std::string, std::string> _headers;
     std::string _blanksize;
     std::string _text;
+
+    std::string _args;
+    bool _is_interact;
 };
 
 class HttpResponse
@@ -122,6 +145,12 @@ public:
                 break;
             case 404:
                 _desc = "Not Found";
+                break;
+            case 302:
+                _desc = "See Other";
+                break;
+            case 301:
+                _desc = "Moved Permanently";
                 break;
             default:
                 break;
@@ -173,6 +202,12 @@ public:
             LOG(LogLevel::INFO) << "用户请求" << _targetfile << "忽略它";
             return false;
         }
+        if (_targetfile == "./wwwroot/redir_test")
+        {
+            SetCode(302);
+            SetHeader("Location", "https://www.qq.com");
+            return true;
+        }
         int filesize = 0;
         bool res = Util::ReadFileContent(_targetfile, &_text);
         if (!res)
@@ -187,6 +222,8 @@ public:
             SetHeader("Content-Type", suffix); 
             // _headers["Content-Type"] += "; charset=utf-8";
             SetHeader("Content-Length", std::to_string(filesize));
+            // SetCode(302);
+            // SetHeader("Location", "http://127.0.0.1:8080/404.html");
         }
         else
         {
@@ -198,6 +235,11 @@ public:
             SetHeader("Content-Length", std::to_string(filesize));
         }
         return true;
+    }
+
+    void SetText(const std::string text)
+    {
+        _text = text;
     }
 
     ~HttpResponse()
@@ -218,6 +260,8 @@ public:
     std::string _targetfile;
 };
 
+using http_func_t = std::function<void(HttpRequest& req, HttpResponse& resp)>;
+
 class Http
 {
 public:
@@ -229,53 +273,84 @@ public:
     void HandlerHttpRequest(std::shared_ptr<Socket> &sock, InetAddr &client)
     {
         // http面向字节流，如何保证请求完整？
-        std::string httpreqstr;
+        std::string httpbuffer;
         // 1.寻找空行，提取报头
         // 2. 从报头提出一个属性： Content: 有效载荷的长度
         // 3. 从剩余部分提出相应长度的正文内容即可
         // to do
-
-        int n = sock->Recv(&httpreqstr);
+        int n = sock->Recv(&httpbuffer);
+        
         if (n > 0)
         {
-            // 对报文完整性进行审核
+            std::cout << "#######################" << std::endl;
+            std::cout << httpbuffer ;
+            std::cout << "######################" << std::endl;
+
             HttpRequest req;
-            req.Deserialize(httpreqstr);
             HttpResponse resp;
-            resp._version = "HTTP/1.1";
-            resp._code = 200; // success
-            resp._desc = "ok";
 
-            resp.SetTargetFile(req.Uri());
-            resp.MakeResponse();
+            req.Deserialize(httpbuffer);
+            if (req.isInteract())
+            {
+                if (_route.find(req.Uri()) == _route.end())
+                {
+                    // SetCode(302);
+                    // Set
+                }
+                else
+                {
+                    _route[req.Uri()](req, resp);
+                    std::string response_str = resp.Serialize();
+                    sock->Send(response_str);
+                }
+            }
+            else
+            {
+                resp.SetTargetFile(req.Uri());
+                if (resp.MakeResponse())
+                {
+                    std::string response_str = resp.Serialize();
+                    sock->Send(response_str);
+                }
+            }
 
-            // LOG(LogLevel::DEBUG) << "用户请求：" << filename;
-            // bool res = Util::ReadFileContent(filename, &resp._text);
-            // (void)res;
-            std::string response_str = resp.Serialize();
-            sock->Send(response_str);
+            // HttpRequest req;
+            // req.Deserialize(httpbuffer);
+            // HttpResponse resp;
+            // resp._version = "HTTP/1.1";
+            // resp._code = 200; // success
+            // resp._desc = "ok";
+
+            // resp.SetTargetFile(req.Uri());
+            // resp.MakeResponse();
+
+            // // LOG(LogLevel::DEBUG) << "用户请求：" << filename;
+            // // bool res = Util::ReadFileContent(filename, &resp._text);
+            // // (void)res;
+            // std::string response_str = resp.Serialize();
+            // sock->Send(response_str);
         }
 
-#define DEBUG
-#ifndef DEBUG
-#define DEBUG
-        std::string httpreqstr;
-        sock->Recv(&httpreqstr);
-        std::cout << httpreqstr << std::endl;
+// #define DEBUG
+// #ifndef DEBUG
+// #define DEBUG
+//         std::string httpreqstr;
+//         sock->Recv(&httpreqstr);
+//         std::cout << httpreqstr << std::endl;
 
-        // 测试，直接构建http应答
-        HttpResponse resp;
-        resp._version = "HTTP/1.1";
-        resp._code = 200; // success
-        resp._desc = "ok";
+//         // 测试，直接构建http应答
+//         HttpResponse resp;
+//         resp._version = "HTTP/1.1";
+//         resp._code = 200; // success
+//         resp._desc = "ok";
 
-        std::string filename = webroot + homepage;
+//         std::string filename = webroot + homepage;
 
-        bool res = Util::ReadFileContent(filename, &resp._text);
+//         bool res = Util::ReadFileContent(filename, &resp._text);
 
-        std::string response_str = resp.Serialize();
-        sock->Send(response_str);
-#endif
+//         std::string response_str = resp.Serialize();
+//         sock->Send(response_str);
+// #endif
     }
 
     void Start()
@@ -284,10 +359,21 @@ public:
                      { this->HandlerHttpRequest(sock, client); });
     }
 
+    void RegisterService(const std::string& name, http_func_t h)
+    {
+        std::string key = webroot + name;
+        auto iter = _route.find(key);
+        if (iter == _route.end())
+        {
+            _route[key] = h;
+        }
+    }
+
     ~Http()
     {
     }
 
 private:
     std::unique_ptr<TcpServer> tsvrp;
+    std::unordered_map<std::string, http_func_t> _route;
 };
