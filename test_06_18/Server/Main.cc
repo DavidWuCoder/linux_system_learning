@@ -3,8 +3,10 @@
 
 #include "Common.hpp"
 #include "Connection.hpp"
+// clang-format off
+#include "Reactor.hpp"
 #include "Listener.hpp"
-#include "TcpServer.hpp"
+// clang-format on
 
 using namespace LogModule;
 
@@ -23,9 +25,10 @@ int main(int argc, char *argv[])
     uint16_t port = std::stoi(argv[1]);
 
     std::shared_ptr<Connection> conn = std::make_shared<Listener>(port);
-    std::unique_ptr<TcpServer> tsvr = std::make_unique<TcpServer>();
+    std::unique_ptr<Reactor> R = std::make_unique<Reactor>();
 
-    tsvr->AddConnection(conn);
+    R->AddConnection(conn);
+    R->Loop();
 
     return 0;
 }

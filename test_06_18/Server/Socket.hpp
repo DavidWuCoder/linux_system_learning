@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cerrno>
+
 #include "Common.hpp"
 #include "Log.hpp"
 #include "inetAddr.hpp"
@@ -32,6 +34,13 @@ public:
         BindOrDie(port);
         ListenOrDie(backlog);
     }
+    void BuildTcpSocketMethod(uint16_t port, int backlog = gbacklog)
+    {
+        SocketOrDie();
+        BindOrDie(port);
+        ListenOrDie(backlog);
+    }
+
     void BuildTcpClientSocketMethod() { SocketOrDie(); }
 
     // void BuildUdpSocketMethod()
@@ -102,6 +111,10 @@ public:
         }
         LOG(LogLevel::INFO) << "listen success";
     }
+
+#define ACCEPT_DONE -1
+#define ACCEPT_CONTINUE -2
+#define ACCEPT_ERR -3
     // std::shared_ptr<Socket> Accept(InetAddr *client) override
     int Accept(InetAddr *client) override
     {
@@ -110,8 +123,19 @@ public:
         int fd = accept(_sockfd, CONV(peer), &len);
         if (fd < 0)
         {
-            LOG(LogLevel::WARNING) << "accept warning ...";
-            return -1;
+            if (errno == EAGAIN || errno == EWOULDBLOCK)
+            {
+                return -1;
+            }
+            else if (errno == EINTR)
+            {
+                return -2;
+            }
+            else
+            {
+                LOG(LogLevel::WARNING) << "accept error";
+                return -3;
+            }
         }
         // client->SetAddr(peer);
         // return std::make_shared<TcpSocket>(fd);

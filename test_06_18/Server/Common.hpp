@@ -1,6 +1,7 @@
 #pragma once
 
 #include <arpa/inet.h>
+#include <fcntl.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
 #include <sys/types.h>
@@ -34,5 +35,15 @@ public:
 };
 
 const int defaultport = 8080;
+
+void SetNonBlock(int fd)
+{
+    int fl = fcntl(fd, F_GETFL);
+    if (fl < 0)
+    {
+        return;
+    }
+    fcntl(fd, F_SETFL, fl | O_NONBLOCK);
+}
 
 #define CONV(addr) ((struct sockaddr *)&addr)
