@@ -1,13 +1,14 @@
 #pragma once
 
-#include <string>
-#include <sstream>
-#include <functional>
 #include <jsoncpp/json/json.h>
+
+#include <functional>
+#include <sstream>
+#include <string>
+
 #include "Socket.hpp"
 
 using namespace SocketModule;
-
 
 const std::string sep = "\r\n";
 
@@ -17,9 +18,7 @@ const std::string sep = "\r\n";
 class Request
 {
 public:
-
-    Request(int x, int y , char oper):_x(x), _y(y), _oper(oper)
-    {}
+    Request(int x, int y, char oper) : _x(x), _y(y), _oper(oper) {}
 
     std::string Serialize()
     {
@@ -52,27 +51,18 @@ public:
         return ok;
     }
 
-    char Oper()
-    {
-        return _oper;
-    }
+    char Oper() { return _oper; }
 
-    int X()
-    {
-        return _x;
-    }
+    int X() { return _x; }
 
-    int Y()
-    {
-        return _y;
-    }
+    int Y() { return _y; }
 
-    Request()
-    {}
+    Request() {}
+
 private:
     int _x;
     int _y;
-    char _oper; // + - * % / -> _x _oper _y
+    char _oper;  // + - * % / -> _x _oper _y
 };
 
 // 使用现成的方案，json-> jsoncpp
@@ -81,10 +71,7 @@ private:
 class Response
 {
 public:
-    Response(int result = 0, int code = 0)
-        :_result(result)
-        ,_code(code)
-    {}
+    Response(int result = 0, int code = 0) : _result(result), _code(code) {}
 
     std::string Serialize()
     {
@@ -120,34 +107,25 @@ public:
         std::cout << "结果是：" << _result << "[" << _code << "]" << std::endl;
     }
 
-    ~Response()
-    {}
+    ~Response() {}
 
-    void SetResult(int res)
-    {
-        _result = res;
-    }
+    void SetResult(int res) { _result = res; }
 
-    void SetCode(int code)
-    {
-        _code = code;
-    }
+    void SetCode(int code) { _code = code; }
+
 private:
-    int _result; // 运算结果
-    int _code; // 不同的运算异常的情况
+    int _result;  // 运算结果
+    int _code;    // 不同的运算异常的情况
 };
 
-using func_t = std::function<Response (Request &req)>;
+using func_t = std::function<Response(Request& req)>;
 
 class Protocol
 {
 public:
-    Protocol()
-    {}
+    Protocol() {}
 
-    Protocol(func_t func)
-        : _func(func)
-    {}
+    Protocol(func_t func) : _func(func) {}
 
     std::string Encode(const std::string jsonstr)
     {
@@ -158,17 +136,18 @@ public:
 
     // 1.判断报文完整性
     // 如果包含至少一个完整请求，提取它，并从缓冲区移除
-    bool Decode(std::string& buffer, std::string *package)
+    bool Decode(std::string& buffer, std::string* package)
     {
         ssize_t pos = buffer.find(sep);
         if (pos == std::string::npos)
         {
-            return false; // 让调用方继续读取数据 
+            return false;  // 让调用方继续读取数据
         }
         std::string package_len_str = buffer.substr(0, pos);
         int package_len_int = std::stoi(package_len_str);
         // 此时buffer一定有长度，但不一定有完整报文
-        int target_len = package_len_str.size() + package_len_int + 2 * sep.size();
+        int target_len =
+            package_len_str.size() + package_len_int + 2 * sep.size();
 
         if (buffer.size() < target_len)
         {
@@ -176,68 +155,27 @@ public:
             return false;
         }
         // buffer 一定至少有一个完整的报文
-        *package = buffer.substr(pos+sep.size(), package_len_int);
+        *package = buffer.substr(pos + sep.size(), package_len_int);
         buffer.erase(0, target_len);
         return true;
     }
 
-    void GetRequest(std::shared_ptr<Socket> &sock, InetAddr& client)
+    std::string Excute(std::string& package)
     {
-        // 读取
-        std::string inbuffer;
-        while (true)
+        Request req;
+        bool ok = req.Deserialize(package);
+        if (!ok)
         {
-            int n = sock->Recv(&inbuffer);
-            std::cout << "------inbuffer--------" << std::endl;
-            std::cout << inbuffer << std::endl;
-            std::cout << "------------------------" << std::endl;
-            if (n > 0)
-            {
-                // 1.解析报文，提取完整的json
-                // std::string json_package;
-                // bool ret = Decode(inbuffer, &json_package);
-                // if (!ret)
-                //     continue;
-                // 一定拿到一个完整报文
-                // 2. 反序列化
-                std::string json_package;
-                while (Decode(inbuffer, &json_package))
-                {
-                    Request req;
-                    bool ok = req.Deserialize(json_package);
-                    if (!ok)
-                    {
-                        continue;
-                    }
-                    std::cout << "发送x：" << req.X() << std::endl;
-                    LOG(LogLevel::INFO) << "请求: " << json_package;
-                
-                    // 3.一定得到了req了
-                    // req->resp, 进行计算
-                    Response resp = _func(req);
-
-                    // 4.序列化
-                    std::string json_str = resp.Serialize();
-
-                    // 5.添加报头
-                    std::string send_str = Encode(json_str);
-
-                    // 6. 直接发送
-                    sock->Send(send_str);
-                }
-            }
-            else if (n == 0)
-            {
-                LOG(LogLevel::INFO) << "client:" << client.StringAddr() << "Quit";
-                break;
-            }
-            else
-            {
-                LOG(LogLevel::WARNING) << "client:" << client.StringAddr() << ", recv error";
-                break;
-            }
+            return std::string();
         }
-        // sock->Close();
+
+        Response resp = _func(req);
+
+        std::string json_str = resp.Serialize();
+
+        std::string send_str = Encode(json_str);
+
+        return send_str;
     }
 
     std::string BuildRequestString(int x, int y, char oper)
@@ -252,12 +190,12 @@ public:
         // std::cout << "========json_req string =========" << std::endl;
         // std::cout << json_req << std::endl;
         // std::cout << "=================================" << std::endl;
-        
 
         return Encode(json_req);
     }
 
-    bool GetResponse(std::shared_ptr<Socket>& client, std::string& resp_buffer, Response* resp)
+    bool GetResponse(std::shared_ptr<Socket>& client, std::string& resp_buffer,
+                     Response* resp)
     {
         int n = client->Recv(&resp_buffer);
 
@@ -297,9 +235,7 @@ public:
         }
     }
 
-    ~Protocol()
-    {}
-
+    ~Protocol() {}
 
 private:
     Request _req;

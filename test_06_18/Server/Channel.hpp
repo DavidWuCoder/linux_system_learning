@@ -10,6 +10,7 @@
 #include "Connection.hpp"
 #include "Epoller.hpp"
 #include "Log.hpp"
+#include "Reactor.hpp"
 #include "inetAddr.hpp"
 
 using namespace LogModule;
@@ -17,10 +18,6 @@ using namespace LogModule;
 class Reactor;
 
 #define SIZE 1024
-
-class Channel;
-
-using handler_t = std::function<void(std::shared_ptr<Channel> channel)>;
 
 // 封装fd，保证给每个fd一套缓冲
 class Channel : public Connection
@@ -42,6 +39,7 @@ public:
         {
             buffer[0] = 0;
             int n = recv(_sockfd, buffer, sizeof(buffer) - 1, 0);
+            LOG(LogLevel::DEBUG) << "开始运行接收...   ： " << n;
             if (n > 0)
             {
                 buffer[n] = 0;
@@ -70,11 +68,66 @@ public:
         }
         if (!_inbuffer.empty())
         {
-            _handler(std::shared_ptr<Channel>(this));
+            LOG(LogLevel::DEBUG) << "开始执行回调函数: \n" << _inbuffer;
+            // Channel.cpp
+            if (_handler)
+            {  // 检查回调是否有效
+                _outbuffer += _handler(_inbuffer);
+            }
+            else
+            {
+                LOG(LogLevel::ERROR) << "回调函数为空，丢弃数据: " << _inbuffer;
+                _inbuffer.clear();  // 避免死循环
+            }
+        }
+        if (!_outbuffer.empty())
+        {
+            Sender();
+            // GetOwner()->EnableReadWrite(_sockfd, true, true);
         }
     }
-    void Sender() {}
-    void Excepter() {}
+    void Sender()
+    {
+        while (true)
+        {
+            int n = send(_sockfd, _outbuffer.c_str(), _outbuffer.size(), 0);
+            if (n > 0)
+            {
+                _outbuffer.erase(0, n);
+                if (_outbuffer.empty())
+                {
+                    break;
+                }
+            }
+            else if (n == 0)
+            {
+                break;
+            }
+            else
+            {
+                if (errno == EAGAIN || errno == EWOULDBLOCK)
+                {
+                    break;
+                }
+                else if (errno == EINTR)
+                {
+                    continue;
+                }
+            }
+        }
+        // 1.数据发送完毕
+        // 2. 对方接收缓冲区满了
+        if (!_outbuffer.empty())
+        {
+            // 关心写事件
+            GetOwner()->EnableReadWrite(_sockfd, true, true);
+        }
+        else
+        {
+            GetOwner()->EnableReadWrite(_sockfd, true, false);
+        }
+    }
+    void Excepter() { GetOwner()->DelConnection(_sockfd); }
     int GetSockFd() { return _sockfd; }
 
     ~Channel() {}
@@ -86,6 +139,4 @@ private:
 
     // client info
     InetAddr _client_addr;
-
-    handler_t _handler;
 };

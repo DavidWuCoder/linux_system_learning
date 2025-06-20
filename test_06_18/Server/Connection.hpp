@@ -8,7 +8,7 @@
 
 class Reactor;
 class Channel;
-using handler_t = std::function<void(std::shared_ptr<Channel> channel)>;
+using handler_t = std::function<std::string(std::string &)>;
 
 // 封装fd，保证给每个fd一套缓冲
 class Connection
@@ -26,7 +26,7 @@ public:
 
     void SetOwner(Reactor *owner) { _owner = owner; }
 
-    void RegisterHandler(handler_t handler) {}
+    void RegisterHandler(handler_t handler) { _handler = handler; }
 
     Reactor *GetOwner() { return _owner; }
 
@@ -42,4 +42,7 @@ private:
 
     // 关心的事件
     uint32_t _events;
+
+protected:
+    handler_t _handler;
 };

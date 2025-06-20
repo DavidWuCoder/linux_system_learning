@@ -69,7 +69,10 @@ private:
             }
             if (events & EPOLLOUT)
             {
-                // todo
+                if (IsConnectionExists(sockfd))
+                {
+                    _connections[sockfd]->Sender();
+                }
             }
         }
     }
@@ -84,6 +87,7 @@ public:
         int timeout = -1;
         while (_isrunning)
         {
+            PrintMap();
             int n = LoopOnce(timeout);
             Dispatcher(n);
         }
@@ -101,6 +105,12 @@ public:
     // 该接口要添加新连接到connections中
     void AddConnection(std::shared_ptr<Connection> &conn)
     {
+        // 0. 不要重复添加
+        if (IsConnectionExists(conn))
+        {
+            LOG(LogLevel::WARNING) << "conn is exists: " << conn->GetSockFd();
+            return;
+        }
         uint32_t events = conn->GetEvents();
         int sockfd = conn->GetSockFd();
         _epoller_ptr->AddEvent(sockfd, events);
@@ -108,6 +118,36 @@ public:
         conn->SetOwner(this);
 
         _connections[sockfd] = conn;
+    }
+
+    void DelConnection(int sockfd)
+    {
+        // 从epoll中删除
+        _epoller_ptr->DelEvent(sockfd);
+
+        // 从_connections中删除
+        _connections.erase(sockfd);
+
+        close(sockfd);
+
+        LOG(LogLevel::INFO) << "client quit...";
+    }
+
+    void EnableReadWrite(int sockfd, bool readable, bool writeable)
+    {
+        if (!IsConnectionExists(sockfd))
+        {
+            LOG(LogLevel::WARNING) << "conn doesn't exists: " << sockfd;
+            return;
+        }
+
+        // 1.修改关心的shijian
+        uint32_t new_event =
+            (EPOLLET | (readable ? EPOLLIN : 0) | (writeable ? EPOLLOUT : 0));
+        _connections[sockfd]->SetEvent(new_event);
+
+        // 2.写透到内核中
+        _epoller_ptr->ModEvent(sockfd, new_event);
     }
 
     ~Reactor() {}

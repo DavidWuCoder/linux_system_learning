@@ -1,5 +1,5 @@
 reactor_server:Main.cc
-	g++ -o $@ $^ -std=c++17
+	g++ -o $@ $^ -ljsoncpp -std=c++17
 .PHONY:clean
 clean:
 	rm -rf reactor_server

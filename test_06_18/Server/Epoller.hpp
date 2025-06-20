@@ -1,5 +1,6 @@
 #pragma once
 #include <sys/epoll.h>
+#include <sys/types.h>
 
 #include "Common.hpp"
 #include "Log.hpp"
@@ -20,15 +21,12 @@ public:
         LOG(LogLevel::INFO) << "epoll_create success, epfd : " << _epfd;
     }
 
-    void AddEvent(int sockfd, uint32_t events)
+    void ModEventHelper(int sockfd, uint32_t events, int oper)
     {
         struct epoll_event ev;
         ev.events = events;
         ev.data.fd = sockfd;
-        int n = epoll_ctl(_epfd, EPOLL_CTL_ADD, sockfd, &ev);
-        LOG(LogLevel::DEBUG) << _epfd << " 添加文件描述符, sockfd: " << sockfd;
-        if (events & EPOLLIN)
-            LOG(LogLevel::DEBUG) << "管理事件EPOLLIN: " << sockfd;
+        int n = epoll_ctl(_epfd, oper, sockfd, &ev);
         if (n < 0)
         {
             LOG(LogLevel::ERROR) << "epoll_ctl error: " << strerror(errno)
@@ -38,9 +36,21 @@ public:
         LOG(LogLevel::INFO) << "epoll_ctl success, sockfd: " << sockfd;
     }
 
-    void DelEvent() {}
+    void AddEvent(int sockfd, uint32_t events)
+    {
+        ModEventHelper(sockfd, events, EPOLL_CTL_ADD);
+    }
 
-    void ModEvent() {}
+    void DelEvent(int sockfd)
+    {
+        int n = epoll_ctl(_epfd, EPOLL_CTL_DEL, sockfd, nullptr);
+        (void)n;
+    }
+
+    void ModEvent(int sockfd, uint32_t events)
+    {
+        ModEventHelper(sockfd, events, EPOLL_CTL_MOD);
+    }
 
     int WaitEvents(struct epoll_event *recvs, int recv_num, int timeout)
     {

@@ -7,6 +7,7 @@
 #include "Common.hpp"
 #include "Connection.hpp"
 #include "Epoller.hpp"
+#include "Log.hpp"
 #include "Reactor.hpp"
 #include "Socket.hpp"
 
@@ -47,7 +48,15 @@ public:
                 std::shared_ptr<Connection> conn =
                     std::make_shared<Channel>(sockfd, client);
                 conn->SetEvent(EPOLLIN | EPOLLET);
-                // if (_handler != nullptr) conn->RegisterHandler(_handler);
+                if (_handler)
+                {
+                    LOG(LogLevel::DEBUG) << "注册回调方法给channel ";
+                    conn->RegisterHandler(_handler);
+                }
+                else
+                {
+                    LOG(LogLevel::ERROR) << "回调方法为空, 无法注册";
+                }
                 GetOwner()->AddConnection(conn);
             }
         }
